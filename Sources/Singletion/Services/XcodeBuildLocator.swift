@@ -1,9 +1,18 @@
 import Foundation
 
 struct XcodeBuildLocator {
-    struct Match: Sendable {
+    struct Match: Identifiable, Sendable {
+        let id: String
         let appURL: URL
         let modificationDate: Date
+        let isPreferredMatch: Bool
+
+        init(appURL: URL, modificationDate: Date, isPreferredMatch: Bool) {
+            self.id = appURL.path
+            self.appURL = appURL
+            self.modificationDate = modificationDate
+            self.isPreferredMatch = isPreferredMatch
+        }
     }
 
     enum LocatorError: LocalizedError {
@@ -21,6 +30,16 @@ struct XcodeBuildLocator {
     }
 
     func findLatestBuild(matching configuration: ManagedAppConfiguration) throws -> Match {
+        let matches = try discoverBuilds(matching: configuration)
+
+        guard let bestMatch = matches.first else {
+            throw LocatorError.noMatchingBuild
+        }
+
+        return bestMatch
+    }
+
+    func discoverBuilds(matching configuration: ManagedAppConfiguration) throws -> [Match] {
         let derivedDataURL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Developer/Xcode/DerivedData", isDirectory: true)
 
@@ -31,11 +50,11 @@ struct XcodeBuildLocator {
         let preferredNames = candidateNames(from: configuration)
         let matches = try collectMatches(in: derivedDataURL, preferredNames: preferredNames)
 
-        guard let bestMatch = matches.sorted(by: compareMatches(_:_:)).first else {
+        guard !matches.isEmpty else {
             throw LocatorError.noMatchingBuild
         }
 
-        return bestMatch
+        return matches.sorted(by: compareMatches(_:_:))
     }
 
     private func collectMatches(in derivedDataURL: URL, preferredNames: [String]) throws -> [Match] {
@@ -54,7 +73,7 @@ struct XcodeBuildLocator {
             guard isInBuildProducts(url) else { continue }
 
             let modificationDate = ManagedAppInspector.modificationDate(forAppAt: url) ?? .distantPast
-            matches.append(Match(appURL: url, modificationDate: modificationDate))
+            matches.append(Match(appURL: url, modificationDate: modificationDate, isPreferredMatch: false))
         }
 
         if preferredNames.isEmpty {
@@ -62,12 +81,11 @@ struct XcodeBuildLocator {
         }
 
         let normalizedPreferredNames = preferredNames.map(normalizeName(_:))
-        let namedMatches = matches.filter { match in
+        return matches.map { match in
             let appName = normalizeName(match.appURL.deletingPathExtension().lastPathComponent)
-            return normalizedPreferredNames.contains(appName)
+            let isPreferredMatch = normalizedPreferredNames.contains(appName)
+            return Match(appURL: match.appURL, modificationDate: match.modificationDate, isPreferredMatch: isPreferredMatch)
         }
-
-        return namedMatches.isEmpty ? matches : namedMatches
     }
 
     private func isInBuildProducts(_ url: URL) -> Bool {
@@ -109,6 +127,10 @@ struct XcodeBuildLocator {
     }
 
     private func compareMatches(_ lhs: Match, _ rhs: Match) -> Bool {
+        if lhs.isPreferredMatch != rhs.isPreferredMatch {
+            return lhs.isPreferredMatch && !rhs.isPreferredMatch
+        }
+
         if lhs.modificationDate != rhs.modificationDate {
             return lhs.modificationDate > rhs.modificationDate
         }

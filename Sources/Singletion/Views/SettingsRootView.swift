@@ -12,6 +12,8 @@ struct SettingsRootView: View {
     @State private var draft = ManagedAppConfiguration()
     @State private var hasUnsavedChanges = false
     @State private var showsAdvancedOptions = false
+    @State private var discoveredBuilds: [XcodeBuildLocator.Match] = []
+    @State private var isShowingBuildBrowser = false
     private let buildLocator = XcodeBuildLocator()
 
     var body: some View {
@@ -104,6 +106,9 @@ struct SettingsRootView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .sheet(isPresented: $isShowingBuildBrowser) {
+            discoveredBuildBrowser
+        }
         .onAppear {
             if let first = registry.configurations.first {
                 selectedID = first.id
@@ -136,6 +141,68 @@ struct SettingsRootView: View {
         }
     }
 
+    private var discoveredBuildBrowser: some View {
+        NavigationStack {
+            Group {
+                if discoveredBuilds.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Xcode Builds Found", systemImage: "hammer")
+                    } description: {
+                        Text("Singletion looked in DerivedData but did not find any app bundles to choose from.")
+                    }
+                } else {
+                    List(discoveredBuilds) { match in
+                        Button {
+                            selectDiscoveredBuild(match)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) {
+                                    Text(match.appURL.lastPathComponent)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(.primary)
+
+                                    if match.isPreferredMatch {
+                                        Text("Suggested")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 2)
+                                            .background(.tertiary.opacity(0.8), in: Capsule())
+                                    }
+                                }
+
+                                Text(match.appURL.path)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+
+                                Text("Modified \(match.modificationDate.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .navigationTitle("DerivedData Builds")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        isShowingBuildBrowser = false
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Refresh") {
+                        browseDiscoveredBuilds()
+                    }
+                }
+            }
+        }
+        .frame(minWidth: 760, minHeight: 460)
+    }
+
     private var form: some View {
         VStack(alignment: .leading, spacing: 18) {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
@@ -144,6 +211,9 @@ struct SettingsRootView: View {
                         TextField("/path/to/build/Products/Release/App.app", text: sourceAppPathBinding)
                         Button("Find Latest Xcode Build") {
                             chooseLatestXcodeBuild()
+                        }
+                        Button("Browse DerivedData...") {
+                            browseDiscoveredBuilds()
                         }
                         Button("Browse...") {
                             chooseSourceApp()
@@ -289,13 +359,33 @@ struct SettingsRootView: View {
     private func chooseLatestXcodeBuild() {
         do {
             let match = try buildLocator.findLatestBuild(matching: draft)
-            draft.sourceAppPath = match.appURL.path
-            hasUnsavedChanges = true
-            autofillDraft(force: true)
+            selectDiscoveredBuild(match)
             appState.currentActivity = "Found latest Xcode build: \(match.appURL.lastPathComponent)"
         } catch {
             appState.currentActivity = error.localizedDescription
         }
+    }
+
+    private func browseDiscoveredBuilds() {
+        do {
+            discoveredBuilds = try buildLocator.discoverBuilds(matching: draft)
+            isShowingBuildBrowser = true
+            appState.currentActivity = discoveredBuilds.isEmpty
+                ? "No Xcode builds found in DerivedData."
+                : "Discovered \(discoveredBuilds.count) Xcode build\(discoveredBuilds.count == 1 ? "" : "s")."
+        } catch {
+            discoveredBuilds = []
+            appState.currentActivity = error.localizedDescription
+            isShowingBuildBrowser = true
+        }
+    }
+
+    private func selectDiscoveredBuild(_ match: XcodeBuildLocator.Match) {
+        draft.sourceAppPath = match.appURL.path
+        hasUnsavedChanges = true
+        autofillDraft(force: true)
+        appState.currentActivity = "Selected Xcode build: \(match.appURL.lastPathComponent)"
+        isShowingBuildBrowser = false
     }
 
     private func autofillDraft(force: Bool = true) {
