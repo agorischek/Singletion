@@ -12,6 +12,7 @@ struct SettingsRootView: View {
     @State private var draft = ManagedAppConfiguration()
     @State private var hasUnsavedChanges = false
     @State private var showsAdvancedOptions = false
+    private let buildLocator = XcodeBuildLocator()
 
     var body: some View {
         NavigationSplitView {
@@ -140,7 +141,10 @@ struct SettingsRootView: View {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
                 labeledField("Source App Path") {
                     HStack(spacing: 10) {
-                        TextField("/path/to/build/Products/Release/App.app", text: binding(\.sourceAppPath))
+                        TextField("/path/to/build/Products/Release/App.app", text: sourceAppPathBinding)
+                        Button("Find Latest Xcode Build") {
+                            chooseLatestXcodeBuild()
+                        }
                         Button("Browse...") {
                             chooseSourceApp()
                         }
@@ -239,9 +243,17 @@ struct SettingsRootView: View {
             set: {
                 draft[keyPath: keyPath] = $0
                 hasUnsavedChanges = true
-                if keyPath == \.sourceAppPath || keyPath == \.installedAppPath {
-                    autofillDraft(force: false)
-                }
+            }
+        )
+    }
+
+    private var sourceAppPathBinding: Binding<String> {
+        Binding(
+            get: { draft.sourceAppPath },
+            set: { newValue in
+                draft.sourceAppPath = newValue
+                hasUnsavedChanges = true
+                autofillDraft(force: false)
             }
         )
     }
@@ -270,6 +282,19 @@ struct SettingsRootView: View {
             draft.sourceAppPath = url.path
             hasUnsavedChanges = true
             autofillDraft(force: true)
+            appState.currentActivity = "Selected source app: \(url.lastPathComponent)"
+        }
+    }
+
+    private func chooseLatestXcodeBuild() {
+        do {
+            let match = try buildLocator.findLatestBuild(matching: draft)
+            draft.sourceAppPath = match.appURL.path
+            hasUnsavedChanges = true
+            autofillDraft(force: true)
+            appState.currentActivity = "Found latest Xcode build: \(match.appURL.lastPathComponent)"
+        } catch {
+            appState.currentActivity = error.localizedDescription
         }
     }
 

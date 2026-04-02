@@ -24,6 +24,7 @@
 		E35E49DB30E2000D48A91225 /* SingletionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 734E1E2BA013FC50FCCE8B6F /* SingletionApp.swift */; };
 		E5D0B15418FB18FA4306FD66 /* ManagedAppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6DCB810FB5BA129827AEAFD /* ManagedAppState.swift */; };
 		E625C1662044C8FE69170483 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F941770579B77499377EDFE8 /* SettingsWindowController.swift */; };
+		E651E379CE2C2F8169552BBC /* XcodeBuildLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E90591364D1BD5811F1C0C /* XcodeBuildLocator.swift */; };
 		EE939911A8CCA2B034D457B8 /* SingletionAppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61DE6FAD4311263A80625520 /* SingletionAppState.swift */; };
 		F577E72AA5A5567B676E8304 /* ManagedAppInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2AA81E270043861196BA16 /* ManagedAppInspector.swift */; };
 /* End PBXBuildFile section */
@@ -39,6 +40,7 @@
 		A4EF9E002AE7123A75D50541 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		AD1FAF7741E94724EBE4A150 /* ManagedAppRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedAppRegistry.swift; sourceTree = "<group>"; };
 		B0C6371E7A06E97033A98D6E /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B5E90591364D1BD5811F1C0C /* XcodeBuildLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XcodeBuildLocator.swift; sourceTree = "<group>"; };
 		B9FE69A62DBE322EBDF1A91C /* Singletion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Singletion.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BBE0FE1F4C42071020D68997 /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsRootView.swift; sourceTree = "<group>"; };
 		C36B8E9E7729B9000135699C /* ManagedAppSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManagedAppSnapshot.swift; sourceTree = "<group>"; };
@@ -91,6 +93,7 @@
 				AD1FAF7741E94724EBE4A150 /* ManagedAppRegistry.swift */,
 				15BAD0C97BDDD50AB77A85C8 /* ManagedAppWatcher.swift */,
 				3A0D8DA62F6A28380FD37D51 /* SingletionPaths.swift */,
+				B5E90591364D1BD5811F1C0C /* XcodeBuildLocator.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -205,6 +208,7 @@
 				ACA6041EF27103C07FB5468F /* SingletionMenuView.swift in Sources */,
 				745B64560D9B550135D963FE /* SingletionPaths.swift in Sources */,
 				A7A9EFD85BA576AA644BD85D /* StatusItemController.swift in Sources */,
+				E651E379CE2C2F8169552BBC /* XcodeBuildLocator.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
