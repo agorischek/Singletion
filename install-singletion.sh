@@ -6,7 +6,6 @@ APPLICATIONS_DIR="$HOME/Applications"
 DERIVED_DATA_DIR="$REPO_DIR/.build/Singletion"
 APP_BUILD_PATH="$DERIVED_DATA_DIR/Build/Products/Release/Singletion.app"
 APP_INSTALL_PATH="$APPLICATIONS_DIR/Singletion.app"
-APP_EXECUTABLE_PATH="$APP_INSTALL_PATH/Contents/MacOS/Singletion"
 APP_PROCESS_PATTERN="$APP_INSTALL_PATH/Contents/MacOS/Singletion"
 
 mkdir -p "$APPLICATIONS_DIR"
@@ -25,7 +24,7 @@ sleep 1
 pkill -f '/Singletion.app/Contents/MacOS/Singletion' || true
 rm -rf "$APP_INSTALL_PATH"
 ditto "$APP_BUILD_PATH" "$APP_INSTALL_PATH"
-"$APP_EXECUTABLE_PATH" >/dev/null 2>&1 &
+open "$APP_INSTALL_PATH"
 
 for _ in {1..20}; do
   if pgrep -f "$APP_PROCESS_PATTERN" >/dev/null 2>&1; then

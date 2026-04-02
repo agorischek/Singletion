@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct SettingsRootView: View {
@@ -65,6 +66,11 @@ struct SettingsRootView: View {
                             saveDraft()
                         }
                         .disabled(!draft.isValid)
+
+                        Button("Autofill") {
+                            autofillDraft()
+                        }
+                        .disabled(draft.sourceAppPath.isEmpty)
 
                         Button("Install Now") {
                             saveDraft()
@@ -197,5 +203,34 @@ struct SettingsRootView: View {
         } catch {
             appState.currentActivity = "Save failed: \(error.localizedDescription)"
         }
+    }
+
+    private func autofillDraft() {
+        let sourceURL = draft.sourceURL
+        guard let bundle = Bundle(url: sourceURL) else { return }
+
+        if draft.bundleIdentifier.isEmpty {
+            draft.bundleIdentifier = bundle.bundleIdentifier ?? draft.bundleIdentifier
+        }
+
+        if draft.installedAppPath.isEmpty {
+            let appName = sourceURL.lastPathComponent
+            draft.installedAppPath = "~/Applications/\(appName)"
+        }
+
+        if draft.processMatch.isEmpty,
+           let executableName = bundle.object(forInfoDictionaryKey: kCFBundleExecutableKey as String) as? String {
+            let installedExecutable = URL(fileURLWithPath: NSString(string: draft.installedAppPath).expandingTildeInPath)
+                .appendingPathComponent("Contents/MacOS", isDirectory: true)
+                .appendingPathComponent(executableName, isDirectory: false)
+            draft.processMatch = installedExecutable.path
+        }
+
+        if draft.displayName == "New Managed App" || draft.displayName.hasPrefix("Managed App ") {
+            draft.displayName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
+                ?? sourceURL.deletingPathExtension().lastPathComponent
+        }
+
+        hasUnsavedChanges = true
     }
 }

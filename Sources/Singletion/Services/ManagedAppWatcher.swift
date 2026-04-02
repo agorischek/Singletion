@@ -6,6 +6,7 @@ final class ManagedAppWatcher {
         var lastSeenFingerprint: String?
         var lastChangeDate: Date?
         var lastAttemptedFingerprint: String?
+        var lastCheckedAt: Date?
     }
 
     private var task: Task<Void, Never>?
@@ -49,10 +50,16 @@ final class ManagedAppWatcher {
     }
 
     private func inspect(_ configuration: ManagedAppConfiguration) async {
+        var context = contexts[configuration.id] ?? WatchContext()
+        if let lastCheckedAt = context.lastCheckedAt,
+           Date().timeIntervalSince(lastCheckedAt) < configuration.pollIntervalSeconds {
+            return
+        }
+        context.lastCheckedAt = Date()
+
         do {
             let fingerprint = try ManagedAppInspector.fingerprint(forAppAt: configuration.sourceURL)
             let modificationDate = ManagedAppInspector.modificationDate(forAppAt: configuration.sourceURL)
-            var context = contexts[configuration.id] ?? WatchContext()
 
             if context.lastSeenFingerprint != fingerprint {
                 context.lastSeenFingerprint = fingerprint
