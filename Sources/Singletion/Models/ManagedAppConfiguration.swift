@@ -24,7 +24,7 @@ struct ManagedAppConfiguration: Codable, Identifiable, Equatable, Sendable {
         installedAppPath: String = "",
         bundleIdentifier: String = "",
         processMatch: String = "",
-        watchMode: WatchMode = .polling,
+        watchMode: WatchMode = .fileWatcher,
         pollIntervalSeconds: Double = 2,
         debounceSeconds: Double = 1.5,
         gracefulQuitTimeoutSeconds: Double = 3,
@@ -67,6 +67,7 @@ struct ManagedAppConfiguration: Codable, Identifiable, Equatable, Sendable {
 }
 
 enum WatchMode: String, Codable, CaseIterable, Identifiable, Sendable {
+    case fileWatcher
     case polling
     case manualOnly
 
@@ -74,6 +75,8 @@ enum WatchMode: String, Codable, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
+        case .fileWatcher:
+            return "File Watcher"
         case .polling:
             return "Polling"
         case .manualOnly:

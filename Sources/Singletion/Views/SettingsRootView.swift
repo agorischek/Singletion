@@ -146,8 +146,10 @@ struct SettingsRootView: View {
                 }
                 .pickerStyle(.segmented)
             }
-            labeledField("Poll Interval (s)") {
-                TextField("2", value: binding(\.pollIntervalSeconds), format: .number)
+            if draft.watchMode == .polling {
+                labeledField("Poll Interval (s)") {
+                    TextField("2", value: binding(\.pollIntervalSeconds), format: .number)
+                }
             }
             labeledField("Debounce (s)") {
                 TextField("1.5", value: binding(\.debounceSeconds), format: .number)
