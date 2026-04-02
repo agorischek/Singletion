@@ -4,6 +4,7 @@ struct ManagedAppConfiguration: Codable, Identifiable, Equatable, Sendable {
     var id: UUID
     var displayName: String
     var sourceAppPath: String
+    var preferredDerivedDataContainer: String?
     var installedAppPath: String
     var bundleIdentifier: String
     var processMatch: String
@@ -21,6 +22,7 @@ struct ManagedAppConfiguration: Codable, Identifiable, Equatable, Sendable {
         id: UUID = UUID(),
         displayName: String = "New Managed App",
         sourceAppPath: String = "",
+        preferredDerivedDataContainer: String? = nil,
         installedAppPath: String = "",
         bundleIdentifier: String = "",
         processMatch: String = "",
@@ -37,6 +39,7 @@ struct ManagedAppConfiguration: Codable, Identifiable, Equatable, Sendable {
         self.id = id
         self.displayName = displayName
         self.sourceAppPath = sourceAppPath
+        self.preferredDerivedDataContainer = preferredDerivedDataContainer
         self.installedAppPath = installedAppPath
         self.bundleIdentifier = bundleIdentifier
         self.processMatch = processMatch

@@ -5,13 +5,26 @@ struct XcodeBuildLocator {
         let id: String
         let appURL: URL
         let modificationDate: Date
+        let appName: String
+        let derivedDataContainerName: String
         let isPreferredMatch: Bool
+        let isPreferredContainer: Bool
 
-        init(appURL: URL, modificationDate: Date, isPreferredMatch: Bool) {
+        init(
+            appURL: URL,
+            modificationDate: Date,
+            appName: String,
+            derivedDataContainerName: String,
+            isPreferredMatch: Bool,
+            isPreferredContainer: Bool
+        ) {
             self.id = appURL.path
             self.appURL = appURL
             self.modificationDate = modificationDate
+            self.appName = appName
+            self.derivedDataContainerName = derivedDataContainerName
             self.isPreferredMatch = isPreferredMatch
+            self.isPreferredContainer = isPreferredContainer
         }
     }
 
@@ -48,7 +61,11 @@ struct XcodeBuildLocator {
         }
 
         let preferredNames = candidateNames(from: configuration)
-        let matches = try collectMatches(in: derivedDataURL, preferredNames: preferredNames)
+        let matches = try collectMatches(
+            in: derivedDataURL,
+            preferredNames: preferredNames,
+            preferredContainer: configuration.preferredDerivedDataContainer
+        )
 
         guard !matches.isEmpty else {
             throw LocatorError.noMatchingBuild
@@ -57,7 +74,7 @@ struct XcodeBuildLocator {
         return matches.sorted(by: compareMatches(_:_:))
     }
 
-    private func collectMatches(in derivedDataURL: URL, preferredNames: [String]) throws -> [Match] {
+    private func collectMatches(in derivedDataURL: URL, preferredNames: [String], preferredContainer: String?) throws -> [Match] {
         let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .contentModificationDateKey, .nameKey]
         let enumerator = FileManager.default.enumerator(
             at: derivedDataURL,
@@ -72,8 +89,20 @@ struct XcodeBuildLocator {
             guard url.pathExtension == "app" else { continue }
             guard isInBuildProducts(url) else { continue }
 
+            guard let derivedDataContainerName = derivedDataContainerName(for: url, relativeTo: derivedDataURL) else { continue }
+
             let modificationDate = ManagedAppInspector.modificationDate(forAppAt: url) ?? .distantPast
-            matches.append(Match(appURL: url, modificationDate: modificationDate, isPreferredMatch: false))
+            let appName = url.deletingPathExtension().lastPathComponent
+            matches.append(
+                Match(
+                    appURL: url,
+                    modificationDate: modificationDate,
+                    appName: appName,
+                    derivedDataContainerName: derivedDataContainerName,
+                    isPreferredMatch: false,
+                    isPreferredContainer: false
+                )
+            )
         }
 
         if preferredNames.isEmpty {
@@ -82,9 +111,16 @@ struct XcodeBuildLocator {
 
         let normalizedPreferredNames = preferredNames.map(normalizeName(_:))
         return matches.map { match in
-            let appName = normalizeName(match.appURL.deletingPathExtension().lastPathComponent)
-            let isPreferredMatch = normalizedPreferredNames.contains(appName)
-            return Match(appURL: match.appURL, modificationDate: match.modificationDate, isPreferredMatch: isPreferredMatch)
+            let isPreferredMatch = normalizedPreferredNames.contains(normalizeName(match.appName))
+            let isPreferredContainer = preferredContainer == match.derivedDataContainerName
+            return Match(
+                appURL: match.appURL,
+                modificationDate: match.modificationDate,
+                appName: match.appName,
+                derivedDataContainerName: match.derivedDataContainerName,
+                isPreferredMatch: isPreferredMatch,
+                isPreferredContainer: isPreferredContainer
+            )
         }
     }
 
@@ -119,6 +155,11 @@ struct XcodeBuildLocator {
         return Array(NSOrderedSet(array: names)) as? [String] ?? names
     }
 
+    private func derivedDataContainerName(for url: URL, relativeTo derivedDataURL: URL) -> String? {
+        let relativePath = url.path.replacingOccurrences(of: derivedDataURL.path + "/", with: "")
+        return relativePath.split(separator: "/").first.map(String.init)
+    }
+
     private func normalizeName(_ name: String) -> String {
         name
             .replacingOccurrences(of: ".app", with: "")
@@ -127,6 +168,10 @@ struct XcodeBuildLocator {
     }
 
     private func compareMatches(_ lhs: Match, _ rhs: Match) -> Bool {
+        if lhs.isPreferredContainer != rhs.isPreferredContainer {
+            return lhs.isPreferredContainer && !rhs.isPreferredContainer
+        }
+
         if lhs.isPreferredMatch != rhs.isPreferredMatch {
             return lhs.isPreferredMatch && !rhs.isPreferredMatch
         }
