@@ -13,17 +13,28 @@ struct SettingsRootView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedID) {
-                ForEach(registry.configurations) { configuration in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(configuration.displayName)
-                            .font(.system(size: 13, weight: .medium))
-                        Text(configuration.installedAppPath)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+            Group {
+                if registry.configurations.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Managed Apps", systemImage: "square.stack.3d.up.slash")
+                    } description: {
+                        Text("Create your first managed app with the + button.")
                     }
-                    .tag(configuration.id)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List(selection: $selectedID) {
+                        ForEach(registry.configurations) { configuration in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(configuration.displayName)
+                                    .font(.system(size: 13, weight: .medium))
+                                Text(configuration.installedAppPath)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                            .tag(configuration.id)
+                        }
+                    }
                 }
             }
             .toolbar {
