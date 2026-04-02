@@ -148,53 +148,47 @@ struct SettingsRootView: View {
                     ContentUnavailableView {
                         Label("No Xcode Builds Found", systemImage: "hammer")
                     } description: {
-                        Text("Singletion looked in DerivedData but did not find any app bundles to choose from.")
+                        Text("Singletion looked for build products in DerivedData but did not find any app bundles to choose from.")
                     }
                 } else {
-                    List {
-                        ForEach(groupedDiscoveredBuilds, id: \.appName) { group in
-                            Section(group.appName) {
-                                ForEach(group.matches) { match in
-                                    Button {
-                                        selectDiscoveredBuild(match)
-                                    } label: {
-                                        VStack(alignment: .leading, spacing: 6) {
-                                            HStack(spacing: 8) {
-                                                Text(match.derivedDataContainerName)
-                                                    .font(.system(size: 13, weight: .medium))
-                                                    .foregroundStyle(.primary)
+                    List(discoveredBuilds) { match in
+                        Button {
+                            selectDiscoveredBuild(match)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) {
+                                    Text(match.appName)
+                                        .font(.system(size: 13, weight: .medium))
+                                        .foregroundStyle(.primary)
 
-                                                if match.isPreferredContainer {
-                                                    Text("Pinned")
-                                                        .font(.system(size: 11, weight: .semibold))
-                                                        .padding(.horizontal, 8)
-                                                        .padding(.vertical, 2)
-                                                        .background(.tertiary.opacity(0.8), in: Capsule())
-                                                } else if match.isPreferredMatch {
-                                                    Text("Suggested")
-                                                        .font(.system(size: 11, weight: .semibold))
-                                                        .padding(.horizontal, 8)
-                                                        .padding(.vertical, 2)
-                                                        .background(.tertiary.opacity(0.8), in: Capsule())
-                                                }
-                                            }
+                                    Text(match.buildConfigurationName)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 2)
+                                        .background(.tertiary.opacity(0.8), in: Capsule())
 
-                                            Text(match.appURL.path)
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.secondary)
-                                                .lineLimit(2)
-
-                                            Text("Modified \(match.modificationDate.formatted(date: .abbreviated, time: .shortened))")
-                                                .font(.system(size: 11))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.vertical, 4)
+                                    if match.isPreferredMatch {
+                                        Text("Latest Match")
+                                            .font(.system(size: 11, weight: .semibold))
+                                            .padding(.horizontal, 8)
+                                            .padding(.vertical, 2)
+                                            .background(.tertiary.opacity(0.8), in: Capsule())
                                     }
-                                    .buttonStyle(.plain)
                                 }
+
+                                Text(match.appURL.path)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(2)
+
+                                Text("Modified \(match.modificationDate.formatted(date: .abbreviated, time: .shortened))")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(.secondary)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 4)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -244,12 +238,6 @@ struct SettingsRootView: View {
                 Text("Singletion can derive the bundle identifier, process path, and sensible defaults from the source app.")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-
-                if let preferredDerivedDataContainer = draft.preferredDerivedDataContainer, !preferredDerivedDataContainer.isEmpty {
-                    Text("Preferred DerivedData Container: \(preferredDerivedDataContainer)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
 
                 if !draft.bundleIdentifier.isEmpty {
                     Text("Bundle ID: \(draft.bundleIdentifier)")
@@ -400,7 +388,6 @@ struct SettingsRootView: View {
 
     private func selectDiscoveredBuild(_ match: XcodeBuildLocator.Match) {
         draft.sourceAppPath = match.appURL.path
-        draft.preferredDerivedDataContainer = match.derivedDataContainerName
         hasUnsavedChanges = true
         autofillDraft(force: true)
         appState.currentActivity = "Selected Xcode build: \(match.appURL.lastPathComponent)"
@@ -410,11 +397,6 @@ struct SettingsRootView: View {
     private func autofillDraft(force: Bool = true) {
         let sourceURL = draft.sourceURL
         guard let bundle = Bundle(url: sourceURL) else { return }
-
-        if let derivedDataContainer = derivedDataContainerName(for: sourceURL),
-           force || draft.preferredDerivedDataContainer == nil || draft.preferredDerivedDataContainer?.isEmpty == true {
-            draft.preferredDerivedDataContainer = derivedDataContainer
-        }
 
         if force || draft.bundleIdentifier.isEmpty {
             draft.bundleIdentifier = bundle.bundleIdentifier ?? draft.bundleIdentifier
@@ -439,22 +421,5 @@ struct SettingsRootView: View {
         }
 
         hasUnsavedChanges = true
-    }
-
-    private var groupedDiscoveredBuilds: [(appName: String, matches: [XcodeBuildLocator.Match])] {
-        let grouped = Dictionary(grouping: discoveredBuilds, by: \.appName)
-        return grouped
-            .map { key, value in (appName: key, matches: value) }
-            .sorted { $0.appName.localizedCaseInsensitiveCompare($1.appName) == .orderedAscending }
-    }
-
-    private func derivedDataContainerName(for url: URL) -> String? {
-        let pathComponents = url.pathComponents
-        guard let derivedDataIndex = pathComponents.firstIndex(of: "DerivedData"),
-              pathComponents.indices.contains(derivedDataIndex + 1) else {
-            return nil
-        }
-
-        return pathComponents[derivedDataIndex + 1]
     }
 }
