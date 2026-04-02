@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -10,6 +11,7 @@ struct SettingsRootView: View {
     @State private var selectedID: UUID?
     @State private var draft = ManagedAppConfiguration()
     @State private var hasUnsavedChanges = false
+    @State private var showsAdvancedOptions = false
 
     var body: some View {
         NavigationSplitView {
@@ -112,6 +114,7 @@ struct SettingsRootView: View {
                   let configuration = registry.configurations.first(where: { $0.id == newValue }) else { return }
             draft = configuration
             hasUnsavedChanges = false
+            showsAdvancedOptions = false
         }
     }
 
@@ -133,55 +136,87 @@ struct SettingsRootView: View {
     }
 
     private var form: some View {
-        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
-            labeledField("Display Name") {
-                TextField("Scenes", text: binding(\.displayName))
-            }
-            labeledField("Source App Path") {
-                TextField("/path/to/build/Products/Release/App.app", text: binding(\.sourceAppPath))
-            }
-            labeledField("Installed App Path") {
-                TextField("~/Applications/App.app", text: binding(\.installedAppPath))
-            }
-            labeledField("Bundle Identifier") {
-                TextField("dev.umeboshi.App", text: binding(\.bundleIdentifier))
-            }
-            labeledField("Process Match") {
-                TextField("/App.app/Contents/MacOS/App", text: binding(\.processMatch))
-            }
-            labeledField("Watch Mode") {
-                Picker("Watch Mode", selection: binding(\.watchMode)) {
-                    ForEach(WatchMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+        VStack(alignment: .leading, spacing: 18) {
+            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
+                labeledField("Source App Path") {
+                    HStack(spacing: 10) {
+                        TextField("/path/to/build/Products/Release/App.app", text: binding(\.sourceAppPath))
+                        Button("Browse...") {
+                            chooseSourceApp()
+                        }
                     }
                 }
-                .pickerStyle(.segmented)
-            }
-            if draft.watchMode == .polling {
-                labeledField("Poll Interval (s)") {
-                    TextField("2", value: binding(\.pollIntervalSeconds), format: .number)
+                labeledField("Display Name") {
+                    TextField("Scenes", text: binding(\.displayName))
+                }
+                labeledField("Install To") {
+                    TextField("~/Applications/App.app", text: binding(\.installedAppPath))
                 }
             }
-            labeledField("Debounce (s)") {
-                TextField("1.5", value: binding(\.debounceSeconds), format: .number)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Singletion can derive the bundle identifier, process path, and sensible defaults from the source app.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                if !draft.bundleIdentifier.isEmpty {
+                    Text("Bundle ID: \(draft.bundleIdentifier)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+
+                if !draft.processMatch.isEmpty {
+                    Text("Process Match: \(draft.processMatch)")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
-            labeledField("Quit Timeout (s)") {
-                TextField("3", value: binding(\.gracefulQuitTimeoutSeconds), format: .number)
-            }
-            labeledField("Relaunch Delay (ms)") {
-                TextField("300", value: binding(\.relaunchDelayMilliseconds), format: .number)
-            }
-            labeledField("Enabled") {
-                Toggle("", isOn: binding(\.enabled))
-                    .labelsHidden()
-            }
-            labeledField("Relaunch After Install") {
-                Toggle("", isOn: binding(\.relaunchAfterInstall))
-                    .labelsHidden()
-            }
-            labeledField("Self Managed") {
-                Toggle("", isOn: binding(\.selfManaged))
-                    .labelsHidden()
+
+            DisclosureGroup("Advanced Options", isExpanded: $showsAdvancedOptions) {
+                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
+                    labeledField("Bundle Identifier") {
+                        TextField("dev.umeboshi.App", text: binding(\.bundleIdentifier))
+                    }
+                    labeledField("Process Match") {
+                        TextField("/App.app/Contents/MacOS/App", text: binding(\.processMatch))
+                    }
+                    labeledField("Watch Mode") {
+                        Picker("Watch Mode", selection: binding(\.watchMode)) {
+                            ForEach(WatchMode.allCases) { mode in
+                                Text(mode.title).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    if draft.watchMode == .polling {
+                        labeledField("Poll Interval (s)") {
+                            TextField("2", value: binding(\.pollIntervalSeconds), format: .number)
+                        }
+                    }
+                    labeledField("Debounce (s)") {
+                        TextField("1.5", value: binding(\.debounceSeconds), format: .number)
+                    }
+                    labeledField("Quit Timeout (s)") {
+                        TextField("3", value: binding(\.gracefulQuitTimeoutSeconds), format: .number)
+                    }
+                    labeledField("Relaunch Delay (ms)") {
+                        TextField("300", value: binding(\.relaunchDelayMilliseconds), format: .number)
+                    }
+                    labeledField("Enabled") {
+                        Toggle("", isOn: binding(\.enabled))
+                            .labelsHidden()
+                    }
+                    labeledField("Relaunch After Install") {
+                        Toggle("", isOn: binding(\.relaunchAfterInstall))
+                            .labelsHidden()
+                    }
+                    labeledField("Self Managed") {
+                        Toggle("", isOn: binding(\.selfManaged))
+                            .labelsHidden()
+                    }
+                }
+                .padding(.top, 12)
             }
         }
         .textFieldStyle(.roundedBorder)
@@ -204,6 +239,9 @@ struct SettingsRootView: View {
             set: {
                 draft[keyPath: keyPath] = $0
                 hasUnsavedChanges = true
+                if keyPath == \.sourceAppPath || keyPath == \.installedAppPath {
+                    autofillDraft(force: false)
+                }
             }
         )
     }
@@ -218,20 +256,37 @@ struct SettingsRootView: View {
         }
     }
 
-    private func autofillDraft() {
+    private func chooseSourceApp() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Source App"
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = false
+        panel.prompt = "Choose App"
+        panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser
+
+        if panel.runModal() == .OK, let url = panel.url, url.pathExtension == "app" {
+            draft.sourceAppPath = url.path
+            hasUnsavedChanges = true
+            autofillDraft(force: true)
+        }
+    }
+
+    private func autofillDraft(force: Bool = true) {
         let sourceURL = draft.sourceURL
         guard let bundle = Bundle(url: sourceURL) else { return }
 
-        if draft.bundleIdentifier.isEmpty {
+        if force || draft.bundleIdentifier.isEmpty {
             draft.bundleIdentifier = bundle.bundleIdentifier ?? draft.bundleIdentifier
         }
 
-        if draft.installedAppPath.isEmpty {
+        if force || draft.installedAppPath.isEmpty {
             let appName = sourceURL.lastPathComponent
             draft.installedAppPath = "~/Applications/\(appName)"
         }
 
-        if draft.processMatch.isEmpty,
+        if (force || draft.processMatch.isEmpty),
            let executableName = bundle.object(forInfoDictionaryKey: kCFBundleExecutableKey as String) as? String {
             let installedExecutable = URL(fileURLWithPath: NSString(string: draft.installedAppPath).expandingTildeInPath)
                 .appendingPathComponent("Contents/MacOS", isDirectory: true)
@@ -239,7 +294,7 @@ struct SettingsRootView: View {
             draft.processMatch = installedExecutable.path
         }
 
-        if draft.displayName == "New Managed App" || draft.displayName.hasPrefix("Managed App ") {
+        if force || draft.displayName == "New Managed App" || draft.displayName.hasPrefix("Managed App ") {
             draft.displayName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
                 ?? sourceURL.deletingPathExtension().lastPathComponent
         }
